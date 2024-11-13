@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Lokasi Anis Larassati</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+  <div id="map" style="width: 100%; height: 900px;"></div>
+  <script>
+    // Cek apakah geolokasi tersedia
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const userLat = position.coords.latitude;
+        const userLng = position.coords.longitude;
+
+        // Inisialisasi peta dengan lokasi pengguna
+        const map = L.map('map').setView([userLat, userLng], 13);
+
+        // Tambahkan tile layer ke peta
+        const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Hubungkan ke server WebSocket
+		const socket = new WebSocket('ws://your-backend-server-url:8080');
+
+
+        // Tangani event saat WebSocket terbuka
+        socket.onopen = () => {
+          console.log('Connected to server');
+          sendLocationUpdate();
+        };
+
+        // Tangani pesan WebSocket untuk memperbarui peta dengan lokasi pengguna lain
+        socket.onmessage = (event) => {
+          const locationData = JSON.parse(event.data);
+          updateMap(locationData.lat, locationData.lng);
+        };
+
+        // Kirim pembaruan lokasi ke server
+        function sendLocationUpdate() {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+              const userLat = position.coords.latitude;
+              const userLng = position.coords.longitude;
+
+              // Kirim lokasi ke server WebSocket
+              socket.send(JSON.stringify({ type: 'location', lat: userLat, lng: userLng }));
+
+              // Perbarui peta dengan lokasi pengguna saat ini
+              updateMap(userLat, userLng);
+            });
+          } else {
+            alert('Geolokasi tidak didukung oleh browser ini.');
+          }
+        }
+
+        // Kirim pembaruan lokasi setiap 10 detik
+        setInterval(sendLocationUpdate, 10000);
+
+        // Fungsi untuk memperbarui peta dengan lokasi baru
+        function updateMap(lat, lng) {
+          // Tambahkan atau perbarui marker untuk lokasi pengguna
+          L.marker([lat, lng]).addTo(map)
+            .bindPopup('<b>Lokasi Anda Saat Ini</b>').openPopup();
+          map.setView([lat, lng], 13);  // Pusatkan peta ke lokasi baru
+        }
+      });
+    } else {
+      alert('Geolokasi tidak didukung oleh browser ini.');
+    }
+  </script>
+</body>
+</html>
